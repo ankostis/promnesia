@@ -155,15 +155,38 @@ def _handle_row(row: dict, db_path: PathLike, locator_schema: str) -> Results:
         )
 
 
-def _get_files(path: PathIsh) -> Iterable[Path]:
+def _get_files(path: PathIsh = None) -> Iterable[Path]:
     """
-    Expand homedir(`~`) and return glob paths matched.
+    Expand homedir(`~`) and globs any file-paths matched.
 
-    Expansion code copied from https://stackoverflow.com/a/51108375/548792
+    :param path:
+        a path ike ``~/foo/**/bar*ish``; CWD assumed if missing/empty/None
+
+    :raises IndexError:
+        on these values:
+
+        >>> str(next(iter(_get_files('/'))))
+        '/'
+
+        >>> import os; cwd = os.getcwd()
+        >>> [
+        ...     str(i.resolve()) == cwd
+        ...     for i in (
+        ...         *_get_files(''),
+        ...         *_get_files('.'),
+        ...     )
+        ... ]
+        [True, True]
+
+    Expansion code adapted from https://stackoverflow.com/a/51108375/548792
     """
-    path = Path(path).expanduser()
-    parts = path.parts[1:] if path.is_absolute() else path.parts
-    return Path(path.root).glob(str(Path("").joinpath(*parts)))
+    path = Path(path or "").expanduser()
+    # Since ``path.glob(pattern)`` supports only relative patterns.
+    # extract it from given input.
+    # But note that '/'  and '.' or '' bring empty parts.
+    parts = path.parts[path.is_absolute():]
+    path = Path(path.root).resolve()
+    return path.glob(str(Path(*parts))) if parts else [path]
 
 
 def _harvest_db(db_path: PathIsh, msgs_query: str, locator_schema: str):
