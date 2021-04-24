@@ -18,7 +18,22 @@ from .dump import visits_to_sqlite
 from .extract import extract_visits, make_filter
 
 
-def iter_all_visits(sources_subset: Iterable[Union[str, int]]=()) -> Iterator[Res[DbVisit]]:
+def _decide_indexers(
+        indexers: Iterable[Res[Source]], sources_subset: Iterable[Union[str, int]]
+    ) -> Iterable[Source]:
+    sources_subset = list(sources_subset)
+    indexers = list(indexers)
+    inames= [i.name for i in indexers if not isinstance(i, Exception)]
+    inumbers= set(range(len(indexers)))
+    unknown = set(sources_subset) - inames - inumbers
+    if unknown:
+        # TODO: raise special exception on bad-sources and handle it politely in CLI.
+        raise ValueError(f"Unknown source(s): {', '.join(str(i) for i in unknown)}")
+    # Substitute positions with names, to facilitate debugging.
+    return [inames[i] if isinstance(i, str) else indexers[i] for i in sources_subset]
+
+
+def iter_all_visits(sources_subset: Iterable[str]=()) -> Iterator[Res[DbVisit]]:
     cfg = config.get()
     output_dir = cfg.output_dir
     # not sure if belongs here??
@@ -32,9 +47,9 @@ def iter_all_visits(sources_subset: Iterable[Union[str, int]]=()) -> Iterator[Re
 
     is_subset_sources = bool(sources_subset)
     if is_subset_sources:
-        sources_subset = set(sources_subset)
+        indexers = _decide_indexers(cfg.sources, sources_subset)
 
-    for i, idx in enumerate(indexers):
+    for idx in indexers:
         name = getattr(idx, "name", None)
         if name and is_subset_sources:
             matched = name in sources_subset or i in sources_subset
