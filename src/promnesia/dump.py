@@ -79,14 +79,13 @@ def visits_to_sqlite(vit: Iterable[Res[DbVisit]], *, overwrite_db: bool) -> List
             new = srcs.difference(cleared)
 
             for src in new:
-                cur = conn.execute(table.delete().where(table.c.src == src))
+                conn.execute(table.delete().where(table.c.src == src))
                 ncleared += conn.execute("SELECT changes()").fetchone()[0]
                 cleared.add(src)
 
             bound = [binder.to_row(x) for x in chunk]
             # pylint: disable=no-value-for-parameter
             conn.execute(table.insert().values(bound))
-    logger.info("Cleared %s old visits from: %s", ncleared, cleared)
 
     if overwrite_db:
         shutil.move(str(tpath), str(db_path))
